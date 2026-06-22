@@ -341,27 +341,34 @@ if st.session_state.get("show_search_form", False):
         new_expiry = st.text_input("Best Consumed", value=st.session_state.bread_data.at[idx, "Expiry"])
 
         # --- Lead time with optional cutoff ---
+        # --- Lead time with optional cutoff ---
         raw_lead = st.session_state.bread_data.at[idx, "Ordering Lead Time"]
         lead_days, lead_cutoff = 0, None
-        if isinstance(raw_lead, str) and "cut-off" in raw_lead:
-            parts = raw_lead.split(",")
+
+        if isinstance(raw_lead, str):
             try:
-                lead_days = int(parts[0].split()[0])
+                lead_days = int(raw_lead.split()[0])
             except Exception:
                 lead_days = 0
-            if len(parts) > 1:
-                cutoff_str = parts[1].replace("cut-off", "").strip()
+            if "cut-off" in raw_lead:
                 try:
+                    cutoff_str = raw_lead.split("cut-off")[-1].strip()
                     lead_cutoff = datetime.strptime(cutoff_str, "%I:%M %p").time()
                 except Exception:
                     lead_cutoff = None
-        elif str(raw_lead).isdigit():
-            lead_days = int(raw_lead)
 
-        new_lead_days = st.selectbox("Lead Days (optional))", options=list(range(0, 15)), index=lead_days)
+
+        options = list(range(0, 15))
+        index_val = lead_days if lead_days in options else 0
+        new_lead_days = st.selectbox("Lead Days (optional)", options=list(range(0, 15)), index=index_val)
         use_cutoff = st.checkbox("Specify cutoff time?", value=lead_cutoff is not None)
-        new_cutoff = st.time_input("Cutoff Time", value=lead_cutoff or time(0,0)) if use_cutoff else None
-        lead_time_text = f"{new_lead_days} days" + (f", {new_cutoff.strftime('%I:%M %p')} cut-off" if new_cutoff else "")
+        if use_cutoff:
+    # If there was a saved cutoff, show it. Otherwise default to midnight.
+            new_cutoff = st.time_input("Cutoff Time", value=lead_cutoff or time(0,0))
+        else:
+    # Explicitly clear cutoff when unchecked
+            new_cutoff = None
+        
 
         # --- Remarks ---
         raw_remark = st.session_state.bread_data.at[idx, "Remark/Update (If Any)"]
@@ -380,7 +387,15 @@ if st.session_state.get("show_search_form", False):
                 st.session_state.bread_data.at[idx, "Supplier"] = pd.NA if not new_supplier.strip() else new_supplier
                 st.session_state.bread_data.at[idx, "Production Day"] = ",".join(new_days)
                 st.session_state.bread_data.at[idx, "Expiry"] = new_expiry
+                lead_time_text = f"{new_lead_days} days" + (
+    f", {new_cutoff.strftime('%I:%M %p')} cut-off" if new_cutoff else ""
+)
                 st.session_state.bread_data.at[idx, "Ordering Lead Time"] = lead_time_text
+                # Optional: track cutoff separately so you can distinguish "no cutoff" with NA
+                st.session_state.bread_data.at[idx, "Ordering Cutoff"] = (
+                new_cutoff.strftime("%H:%M:%S") if new_cutoff else pd.NA
+)
+
                 st.session_state.bread_data.at[idx, "Remark/Update (If Any)"] = pd.NA if not new_remark.strip() else new_remark
 
                 # Handle new image replacement here

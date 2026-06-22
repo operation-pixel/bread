@@ -1,4 +1,6 @@
 import streamlit as st
+st.session_state.bread_data.to_excel(EXCEL_FILE, index=False, engine="openpyxl")
+
 
 st.title("About")
 st.write("This app helps manage bread production and inventory.")

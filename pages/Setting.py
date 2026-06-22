@@ -3,7 +3,8 @@ import pandas as pd
 import re
 import os
 import io
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
+from PIL import Image
 
 # Path to save file in the same directory as app.py
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +22,8 @@ if "bread_data" not in st.session_state:
     else:
         # Start with an empty DataFrame (no sample rows)
         st.session_state.bread_data = pd.DataFrame({
-            "Image": [],
+            "ImageRelative": [],
+            "ImageAbsolute": [],
             "Name": [],
             "Supplier": [],
             "Production Day": [],
@@ -42,31 +44,53 @@ if "lead_time_days_list" not in st.session_state:
 
 # --- Display table ---
 rows = len(st.session_state.bread_data)
+
+# Build a list of columns excluding ImageAbsolute
+cols = [c for c in st.session_state.bread_data.columns if c != "ImageAbsolute"]
+
+# Move ImageRelative to the end
+cols = [c for c in cols if c != "ImageRelative"] + ["ImageRelative"]
+
+# Render only the selected columns
 st.dataframe(
-    st.session_state.bread_data,
+    st.session_state.bread_data[cols],
     column_config={
-        "Image": st.column_config.ImageColumn("Bread Image", width="small")
+        "ImageRelative": st.column_config.TextColumn("Relative Path")
     },
-    # height=rows*35+100
+    hide_index=True
 )
+
+# --- Helper to reset flags ---
+def reset_forms():
+    st.session_state.show_add_form = False
+    st.session_state.show_search_form = False
+    st.session_state.show_delete_form = False
+    st.session_state.show_export = False
+    st.session_state.show_import = False
 
 # --- Buttons layout with persistent state ---
 col1, col2, col3, col4, col5 = st.columns([1,1,1,1,1])
 with col1:
     if st.button("➕ Add Bread"):
+        reset_forms()
         st.session_state.show_add_form = True
 with col2:
-    if st.button("🔍 Search Bread"):
+    if st.button("🔍 Update Bread Details"):
+        reset_forms()
         st.session_state.show_search_form = True
 with col3:
     if st.button("🗑️ Delete Bread"):
+        reset_forms()
         st.session_state.show_delete_form = True
 with col4:
     if st.button("⬇️ Export (CSV/Excel)"):
+        reset_forms()
         st.session_state.show_export = True
 with col5:
     if st.button("⬆️ Import (CSV/Excel)"):
+        reset_forms()
         st.session_state.show_import = True
+
 
 # --- Add bread form ---
 if st.session_state.get("show_add_form", False):
@@ -107,12 +131,16 @@ if st.session_state.get("show_add_form", False):
         else:
             # Save image only when entry is confirmed
             image_path = None
+            relative_path = None
+
             if image is not None and name:
-                base_filename = name.replace(" ", "_").lower()
+                safe_name = re.sub(r'[\\/*?:"<>|]', "_", name) 
+                base_filename = safe_name.replace(" ", "_").lower()
                 file_ext = os.path.splitext(image.name)[1]
                 final_filename = f"{base_filename}{file_ext}"
                 final_path = os.path.join(image_dir, final_filename)
 
+                os.makedirs(image_dir, exist_ok=True)
                 counter = 1
                 while os.path.exists(final_path):
                     final_filename = f"{base_filename}_{counter}{file_ext}"
@@ -123,11 +151,13 @@ if st.session_state.get("show_add_form", False):
                     f.write(image.getbuffer())
 
                 # image_path = os.path.relpath(final_path, APP_DIR)
-                image_path = f"/static/images/{final_filename}"
+                image_path = final_path
+                relative_path = os.path.relpath(final_path, APP_DIR).replace("\\", "/")
 
                 
             new_row = {
-                "Image": image_path if image_path else "🍞",
+                "ImageRelative": relative_path if relative_path else "🍞",
+                "ImageAbsolute": image_path if image_path else None,
                 "Name": name,
                 "Supplier": supplier,
                 "Production Day": ", ".join(production_day),
@@ -135,6 +165,7 @@ if st.session_state.get("show_add_form", False):
                 "Ordering Lead Time": lead_time_text,
                 "Remark/Update (If Any)": update, # keep consistent with your DataFrame
             }
+
 
             st.session_state.bread_data = pd.concat(
                 [st.session_state.bread_data, pd.DataFrame([new_row])],
@@ -208,3 +239,165 @@ if st.session_state.get("show_export", False):
 
     # Hide export after showing
     st.session_state.show_export = False
+
+# --- Import form ---
+# --- Import form ---
+if st.session_state.get("show_import", False):
+    st.subheader("Import Bread Database")
+
+    uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
+    if uploaded_file is not None:
+        try:
+            # Read based on file type
+            if uploaded_file.name.endswith(".csv"):
+                imported_df = pd.read_csv(uploaded_file)
+            else:
+                imported_df = pd.read_excel(uploaded_file)
+
+            # Only these two are compulsory
+            required_cols = ["Name", "Expiry"]
+
+            # Check for missing compulsory columns
+            missing = [c for c in required_cols if c not in imported_df.columns]
+            if missing:
+                st.error(f"Missing compulsory columns: {', '.join(missing)}")
+            else:
+                # Ensure all other expected columns exist (fill with None if missing)
+                expected_cols = [
+                    "ImageRelative", "ImageAbsolute", "Supplier",
+                    "Production Day", "Ordering Lead Time", "Remark/Update (If Any)"
+                ]
+                for col in expected_cols:
+                    if col not in imported_df.columns:
+                        imported_df[col] = None
+
+                # Remove rows from imported_df where Name already exists in bread_data
+                existing_names = set(st.session_state.bread_data["Name"].tolist())
+                imported_df = imported_df[~imported_df["Name"].isin(existing_names)]
+
+                # Merge with existing data
+                st.session_state.bread_data = pd.concat(
+                    [st.session_state.bread_data, imported_df],
+                    ignore_index=True
+                )
+
+                # Save back to disk
+                
+                st.session_state.bread_data.to_csv(DB_FILE, index=False)
+                st.session_state.bread_data.to_excel(EXCEL_FILE, index=False)
+
+                st.success("Import successful! Data merged into bread database.")
+                st.session_state.show_import = False
+
+        except Exception as e:
+            st.error(f"Error importing file: {e}")
+
+# --- Update/Search Bread form ---
+if st.session_state.get("show_search_form", False):
+    st.subheader("Update Bread Details")
+
+    # Dropdown to select bread
+    bread_to_edit = st.selectbox("Select bread to edit", st.session_state.bread_data["Name"].tolist())
+    if bread_to_edit:
+        idx = st.session_state.bread_data[st.session_state.bread_data["Name"] == bread_to_edit].index[0]
+
+        # --- Bread name ---
+        raw_name = st.session_state.bread_data.at[idx, "Name"]
+        name_default = "" if pd.isna(raw_name) else str(raw_name)
+        new_name = st.text_input("Bread Name", value=name_default)
+
+        # --- Current image preview + delete option ---
+        current_image_path = st.session_state.bread_data.at[idx, "ImageAbsolute"]
+        if isinstance(current_image_path, str) and current_image_path and os.path.exists(current_image_path):
+            st.image(current_image_path, caption=f"Current image for {bread_to_edit}", width=200)
+            if st.button("🗑️ Delete Current Image", key=f"delete_image_{idx}"):
+                st.session_state.bread_data.at[idx, "ImageRelative"] = None
+                st.session_state.bread_data.at[idx, "ImageAbsolute"] = None
+                st.session_state.bread_data.to_csv(DB_FILE, index=False)
+                st.session_state.bread_data.to_excel(EXCEL_FILE, index=False)
+                st.success(f"Image deleted for {bread_to_edit}")
+
+        # --- Upload new image (preview only, commit on save) ---
+        new_image = st.file_uploader("Upload new image", type=["png","jpg","jpeg"], key=f"upload_image_{idx}")
+        if new_image:
+            st.image(new_image, caption="New image preview", width=200)
+
+        # --- Supplier ---
+        raw_supplier = st.session_state.bread_data.at[idx, "Supplier"]
+        supplier_default = "" if pd.isna(raw_supplier) else str(raw_supplier)
+        new_supplier = st.text_input("Supplier", value=supplier_default)
+
+        # --- Production Days ---
+        raw_days = st.session_state.bread_data.at[idx, "Production Day"]
+        default_days = [] if pd.isna(raw_days) or not str(raw_days).strip() else [
+            d for d in str(raw_days).split(",") if d in
+            ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+        ]
+        new_days = st.multiselect("Production Days",
+                                  ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+                                  default=default_days)
+
+        # --- Expiry ---
+        new_expiry = st.text_input("Best Consumed", value=st.session_state.bread_data.at[idx, "Expiry"])
+
+        # --- Lead time with optional cutoff ---
+        raw_lead = st.session_state.bread_data.at[idx, "Ordering Lead Time"]
+        lead_days, lead_cutoff = 0, None
+        if isinstance(raw_lead, str) and "cut-off" in raw_lead:
+            parts = raw_lead.split(",")
+            try:
+                lead_days = int(parts[0].split()[0])
+            except Exception:
+                lead_days = 0
+            if len(parts) > 1:
+                cutoff_str = parts[1].replace("cut-off", "").strip()
+                try:
+                    lead_cutoff = datetime.strptime(cutoff_str, "%I:%M %p").time()
+                except Exception:
+                    lead_cutoff = None
+        elif str(raw_lead).isdigit():
+            lead_days = int(raw_lead)
+
+        new_lead_days = st.number_input("Lead Time (days)", min_value=0, value=lead_days)
+        use_cutoff = st.checkbox("Specify cutoff time?", value=lead_cutoff is not None)
+        new_cutoff = st.time_input("Cutoff Time", value=lead_cutoff or time(0,0)) if use_cutoff else None
+        lead_time_text = f"{new_lead_days} days" + (f", {new_cutoff.strftime('%I:%M %p')} cut-off" if new_cutoff else "")
+
+        # --- Remarks ---
+        raw_remark = st.session_state.bread_data.at[idx, "Remark/Update (If Any)"]
+        remark_default = "" if pd.isna(raw_remark) else str(raw_remark)
+        new_remark = st.text_area("Remarks", value=remark_default)
+
+        # --- Save Updates ---
+        if st.button("💾 Save Updates", key=f"save_updates_{idx}"):
+            if not new_name.strip():
+                st.error("Bread name cannot be empty.")
+            elif new_name in st.session_state.bread_data["Name"].tolist() and new_name != raw_name:
+                st.error("Duplicate bread name detected. Please choose a unique name.")
+            else:
+                # Update DataFrame fields
+                st.session_state.bread_data.at[idx, "Name"] = new_name
+                st.session_state.bread_data.at[idx, "Supplier"] = pd.NA if not new_supplier.strip() else new_supplier
+                st.session_state.bread_data.at[idx, "Production Day"] = ",".join(new_days)
+                st.session_state.bread_data.at[idx, "Expiry"] = new_expiry
+                st.session_state.bread_data.at[idx, "Ordering Lead Time"] = lead_time_text
+                st.session_state.bread_data.at[idx, "Remark/Update (If Any)"] = pd.NA if not new_remark.strip() else new_remark
+
+                # Handle new image replacement here
+                if new_image is not None:
+                    saved_name = st.session_state.bread_data.at[idx, "Name"]
+                    base_filename = saved_name.replace(" ", "_").lower()
+                    file_ext = os.path.splitext(new_image.name)[1]
+                    final_filename = f"{base_filename}_replaced{file_ext}"
+                    final_path = os.path.join(image_dir, final_filename)
+                    with open(final_path, "wb") as f:
+                        f.write(new_image.getbuffer())
+                    relative_path = os.path.relpath(final_path, APP_DIR).replace("\\", "/")
+                    st.session_state.bread_data.at[idx, "ImageRelative"] = relative_path
+                    st.session_state.bread_data.at[idx, "ImageAbsolute"] = final_path
+
+                # Persist changes
+                st.session_state.bread_data.to_csv(DB_FILE, index=False)
+                st.session_state.bread_data.to_excel(EXCEL_FILE, index=False)
+
+                st.success(f"Details updated for {new_name}")

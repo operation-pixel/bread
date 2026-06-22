@@ -1,6 +1,2 @@
-Image,Name,Supplier,Production Day,Expiry,Ordering Lead Time,Remark/Update (If Any)
-????,Sourdough,Local Mill,"Wednesday, Friday",Production Day + 5 days,,
-????,Baguette,French Bakery,Tuesday,Production Day + 4 days,"4 days, 12pm cut-off",
-????,hellp,,,Production Day + 5 days,0 days,
-????,Gardenia Wrap,gard,"Saturday, Friday, Wednesday",Production Day + 6 days,"5 days, 10:39 AM cut-off",ok
-/static/images/hotdog.jpeg,hotdog,gardenia,Wednesday,Production Day + 5 days,"5 days, 12:15 AM cut-off",please see
+ImageRelative,ImageAbsolute,Name,Supplier,Production Day,Expiry,Ordering Lead Time,Remark/Update (If Any)
+static/images/bread_bj_butterscotch_loaf_(360g_pkt).png,C:\Users\YeeGin.Woon\Bread\pages\static\images\bread_bj_butterscotch_loaf_(360g_pkt).png,BREAD BJ BUTTERSCOTCH LOAF (360G/PKT),Gardenia,"Tuesday, Friday",Production Day + 4 days,0 days,

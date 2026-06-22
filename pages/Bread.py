@@ -42,8 +42,8 @@ else:
         st.markdown("---")
         cols = st.columns([1, 2])
         with cols[0]:
-            if isinstance(row["ImageAbsolute"], str) and row["ImageAbsolute"]:
-                st.image(row["ImageAbsolute"], width=150)
+            if isinstance(row["ImageRelative"], str) and row["ImageRelative"]:
+                st.image(row["ImageRelative"], width=150)
             else:
                 st.write("No image available")
         with cols[1]:

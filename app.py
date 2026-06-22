@@ -6,7 +6,7 @@ st.write("This app helps manage bread production and inventory.")
 st.write("Use the sidebar to navigate to Bread Overview or Manage Bread.")
 
 
-image_dir = os.path.join("static", "image")
+image_dir = os.path.join("static", "images")
 st.write("Image directory:", image_dir)
 
 # Show the hotdog image

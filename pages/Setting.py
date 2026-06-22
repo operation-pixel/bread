@@ -358,7 +358,7 @@ if st.session_state.get("show_search_form", False):
         elif str(raw_lead).isdigit():
             lead_days = int(raw_lead)
 
-        new_lead_days = st.number_input("Lead Time (days)", min_value=0, value=lead_days)
+        new_lead_days = st.selectbox("Lead Days (optional))", options=list(range(0, 15)), index=0)
         use_cutoff = st.checkbox("Specify cutoff time?", value=lead_cutoff is not None)
         new_cutoff = st.time_input("Cutoff Time", value=lead_cutoff or time(0,0)) if use_cutoff else None
         lead_time_text = f"{new_lead_days} days" + (f", {new_cutoff.strftime('%I:%M %p')} cut-off" if new_cutoff else "")

@@ -9,6 +9,12 @@ st.write("Use the sidebar to navigate to Bread Overview or Manage Bread.")
 image_dir = os.path.join("static", "images")
 st.write("Image directory:", image_dir)
 
+
+# List all files in the folder
+if os.path.exists(image_dir):
+    files = os.listdir(image_dir)
+    st.write("Files found in static/image:", files)
+    
 # Show the hotdog image
 hotdog_path = os.path.join(image_dir, "hotdog.jpg")  # adjust extension if it's .png
 if os.path.exists(hotdog_path):

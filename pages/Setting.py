@@ -163,7 +163,7 @@ if st.session_state.get("show_add_form", False):
                 "ImageAbsolute": image_path if image_path else None,
                 "Name": name,
                 "Supplier": supplier,
-                "Production Day": ", ".join(production_day),
+                "Production Day": ", ".join([d.strip() for d in production_day]),
                 "Expiry Days": expiry_days,
                 "Expiry": expiry_text,
                 "Lead Day": lead_days,
@@ -336,7 +336,7 @@ if st.session_state.get("show_search_form", False):
         # --- Production Days ---
         raw_days = st.session_state.bread_data.at[idx, "Production Day"]
         default_days = [] if pd.isna(raw_days) or not str(raw_days).strip() else [
-            d for d in str(raw_days).split(",") if d in
+            d.strip() for d in str(raw_days).split(",") if d.strip() in
             ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
         ]
         new_days = st.multiselect("Production Days",
@@ -358,32 +358,6 @@ if st.session_state.get("show_search_form", False):
         # Build the friendly text for display
         new_expiry = f"Production Day + {new_expiry_days} days"
 
-        # --- Lead time with optional cutoff ---
-        # --- Lead time with optional cutoff ---
-    #     raw_lead_days = st.session_state.bread_data.at[idx, "Lead Day"]
-    #     raw_cutoff = st.session_state.bread_data.at[idx, "Lead Time"]
-    #     # cutoff_val = datetime.strptime(raw_cutoff, "%H:%M %p").time()
-
-
-    #     lead_days, lead_cutoff = 0, None
-    #     index_val = int(raw_lead_days) if pd.notna(raw_lead_days) else 0
-    #     new_lead_days = st.selectbox("Lead Days (optional)", options=list(range(0, 15)), index=index_val)
-
-    #     use_cutoff = st.checkbox("Specify cutoff time?", value=pd.notna(raw_cutoff))
-    #     new_cutoff = st.time_input("Cutoff Time", value=datetime.strptime(raw_cutoff, "%H:%M %p").time()) if use_cutoff and pd.notna(raw_cutoff) else None
-
-
-
-    #     options = list(range(0, 15))
-    #     index_val = lead_days if lead_days in options else 0
-    #     # new_lead_days = st.selectbox("Lead Days (optional)", options=list(range(0, 15)), index=index_val)
-    #     # use_cutoff = st.checkbox("Specify cutoff time?", value=lead_cutoff is not None)
-    #     if use_cutoff:
-    # # If there was a saved cutoff, show it. Otherwise default to midnight.
-    #         new_cutoff = st.time_input("Cutoff Time", value=lead_cutoff or time(0,0))
-    #     else:
-    # # Explicitly clear cutoff when unchecked
-    #         new_cutoff = None
         
         # --- Lead time with optional cutoff ---
         raw_lead_days = st.session_state.bread_data.at[idx, "Lead Day"]

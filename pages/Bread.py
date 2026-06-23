@@ -1,13 +1,20 @@
-import streamlit as st
+import os
 import pandas as pd
-from datetime import timedelta
+import streamlit as st
+
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(APP_DIR, "bread_data.csv")
 
 st.title("Bread Calendar View")
 
 # --- Ensure bread data exists ---
 if "bread_data" not in st.session_state:
-    st.error("No bread data found. Please add bread items on the Manage Bread page first.")
-else:
+    if os.path.exists(DB_FILE):
+        st.session_state.bread_data = pd.read_csv(DB_FILE)
+    else:
+        st.error("No bread data found. Please add bread items on the Manage Bread page first.")
+
+if "bread_data" in st.session_state:
     # --- Calendar date picker ---
     selected_date = st.date_input("Select a production date")
 
@@ -21,22 +28,23 @@ else:
     # --- Filtered DataFrame ---
     df = st.session_state.bread_data.copy()
 
-    # Apply supplier filter
     if supplier_filter != "All":
         df = df[df["Supplier"] == supplier_filter]
 
-    # Apply search filter
     if search_term.strip():
         df = df[df["Name"].str.contains(search_term, case=False, na=False)]
 
     # --- Calculate expiry and best consumed ---
     df["Production Day"] = pd.to_datetime(selected_date)
-
     df["Expiry"] = df["Production Day"] + pd.to_timedelta(df["Expiry Days"], unit="D")
 
-    df["Ordering Lead Time"] = df["Production Day"] - pd.to_timedelta(df["Ordering Lead Time"], unit="D")
+    # ⚠️ Careful: "Ordering Lead Time" is text in your DB, not numeric.
+    # If you want numeric days, store them separately (e.g. "Lead Day").
+    df["Ordering Lead Time"] = df["Production Day"] - pd.to_timedelta(df["Lead Day"], unit="D")
 
-    df["Best Consumed"] = df["Expiry"] - pd.to_timedelta(df["ConsumeBufferDays"], unit="D")
+    # If you want "Best Consumed", make sure you have a numeric column for buffer days.
+    # Example: df["Best Consumed"] = df["Expiry"] - pd.to_timedelta(df["ConsumeBufferDays"], unit="D")
+
 
 
 # --- Sort alphabetically by bread name ---

@@ -30,25 +30,51 @@ else:
         df = df[df["Name"].str.contains(search_term, case=False, na=False)]
 
     # --- Calculate expiry and best consumed ---
-    df["Expiry"] = (pd.to_datetime(selected_date) + timedelta(days=5)).date()
-    df["Best Consumed"] = (pd.to_datetime(selected_date) + timedelta(days=2)).date()
+    df["Production Day"] = pd.to_datetime(selected_date)
+
+    df["Expiry"] = df["Production Day"] + pd.to_timedelta(df["Expiry Days"], unit="D")
+
+    df["Ordering Lead Time"] = df["Production Day"] - pd.to_timedelta(df["Ordering Lead Time"], unit="D")
+
+    df["Best Consumed"] = df["Expiry"] - pd.to_timedelta(df["ConsumeBufferDays"], unit="D")
 
 
 # --- Sort alphabetically by bread name ---
     # df = df.sort_values(by="Name", ascending=True)
 
     # --- Display as cards instead of table ---
+
+# --- Display as cards instead of table ---
     for _, row in df.iterrows():
         st.markdown("---")
         cols = st.columns([1, 2])
         with cols[0]:
-            if isinstance(row["ImageRelative"], str) and row["ImageRelative"]:
-                st.image(row["ImageRelative"], width=150)
-            else:
-                st.write("No image available")
+            img_displayed = False
+
+            # Try relative path first
+            if isinstance(row.get("ImageRelative"), str) and row["ImageRelative"]:
+                try:
+                    st.image(row["ImageRelative"], width=150)
+                    img_displayed = True
+                except Exception:
+                    img_displayed = False
+
+            # Fallback to absolute path
+            if not img_displayed and isinstance(row.get("ImageAbsolute"), str) and row["ImageAbsolute"]:
+                try:
+                    st.image(row["ImageAbsolute"], width=150)
+                    img_displayed = True
+                except Exception:
+                    img_displayed = False
+
+            # Final fallback: blank placeholder image
+            if not img_displayed:
+                st.image("static/images/blank.png", width=150)
+
         with cols[1]:
             st.subheader(row["Name"])
             st.write(f"**Supplier:** {row['Supplier']}")
             st.write(f"**Expiry:** {row['Expiry']}")
             st.write(f"**Production Day:** {row['Production Day']}")
             st.write(f"**Best Consumed:** {row['Best Consumed']}")
+

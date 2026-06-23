@@ -27,8 +27,11 @@ if "bread_data" not in st.session_state:
             "Name": [],
             "Supplier": [],
             "Production Day": [],
+            "Expiry Days": [],
             "Expiry": [],
             "Ordering Lead Time": [],
+            "Lead Day": [],
+            "Lead Time": [],
             "Remark/Update (If Any)": [],
         })
         # Save both CSV and Excel locally
@@ -46,7 +49,7 @@ if "lead_time_days_list" not in st.session_state:
 rows = len(st.session_state.bread_data)
 
 # Build a list of columns excluding ImageAbsolute
-cols = [c for c in st.session_state.bread_data.columns if c != "ImageAbsolute"]
+cols = [c for c in st.session_state.bread_data.columns if c not in ["ImageAbsolute","Expiry Days","Lead Day","Lead Time"]]
 
 # Move ImageRelative to the end
 cols = [c for c in cols if c != "ImageRelative"] + ["ImageRelative"]
@@ -117,7 +120,7 @@ if st.session_state.get("show_add_form", False):
 
     # Build the friendly text
     lead_time_text = (
-        f"{lead_days} days, {lead_cutoff.strftime('%I:%M %p')} cut-off"
+        f"{lead_days} days, {lead_cutoff.strftime('%H:%M:%S')} cut-off"
         if lead_cutoff
         else f"{lead_days} days"
     )
@@ -161,7 +164,10 @@ if st.session_state.get("show_add_form", False):
                 "Name": name,
                 "Supplier": supplier,
                 "Production Day": ", ".join(production_day),
+                "Expiry Days": expiry_days,
                 "Expiry": expiry_text,
+                "Lead Day": lead_days,
+                "Lead Time": lead_cutoff.strftime('%H:%M:%S') if lead_cutoff else pd.NA,
                 "Ordering Lead Time": lead_time_text,
                 "Remark/Update (If Any)": update, # keep consistent with your DataFrame
             }
@@ -265,7 +271,7 @@ if st.session_state.get("show_import", False):
                 # Ensure all other expected columns exist (fill with None if missing)
                 expected_cols = [
                     "ImageRelative", "ImageAbsolute", "Supplier",
-                    "Production Day", "Ordering Lead Time", "Remark/Update (If Any)"
+                    "Production Day", "Expiry Days", "Expiry", "Lead Day", "Lead Time", "Ordering Lead Time", "Remark/Update (If Any)"
                 ]
                 for col in expected_cols:
                     if col not in imported_df.columns:
@@ -338,37 +344,60 @@ if st.session_state.get("show_search_form", False):
                                   default=default_days)
 
         # --- Expiry ---
-        new_expiry = st.text_input("Best Consumed", value=st.session_state.bread_data.at[idx, "Expiry"])
+        # new_expiry = st.text_input("Best Consumed", value=st.session_state.bread_data.at[idx, "Expiry"])
+        # --- Expiry ---
+        raw_expiry_days = st.session_state.bread_data.at[idx, "Expiry Days"]
+        index_val = int(raw_expiry_days) if pd.notna(raw_expiry_days) else 0  # default to 4
+
+        new_expiry_days = st.selectbox(
+            "Best Consumed (Production Day + x days)",
+            options=list(range(0, 15)),
+            index=index_val
+        )
+
+        # Build the friendly text for display
+        new_expiry = f"Production Day + {new_expiry_days} days"
 
         # --- Lead time with optional cutoff ---
         # --- Lead time with optional cutoff ---
-        raw_lead = st.session_state.bread_data.at[idx, "Ordering Lead Time"]
-        lead_days, lead_cutoff = 0, None
-
-        if isinstance(raw_lead, str):
-            try:
-                lead_days = int(raw_lead.split()[0])
-            except Exception:
-                lead_days = 0
-            if "cut-off" in raw_lead:
-                try:
-                    cutoff_str = raw_lead.split("cut-off")[-1].strip()
-                    lead_cutoff = datetime.strptime(cutoff_str, "%I:%M %p").time()
-                except Exception:
-                    lead_cutoff = None
+    #     raw_lead_days = st.session_state.bread_data.at[idx, "Lead Day"]
+    #     raw_cutoff = st.session_state.bread_data.at[idx, "Lead Time"]
+    #     # cutoff_val = datetime.strptime(raw_cutoff, "%H:%M %p").time()
 
 
-        options = list(range(0, 15))
-        index_val = lead_days if lead_days in options else 0
-        new_lead_days = st.selectbox("Lead Days (optional)", options=list(range(0, 15)), index=index_val)
-        use_cutoff = st.checkbox("Specify cutoff time?", value=lead_cutoff is not None)
-        if use_cutoff:
-    # If there was a saved cutoff, show it. Otherwise default to midnight.
-            new_cutoff = st.time_input("Cutoff Time", value=lead_cutoff or time(0,0))
-        else:
-    # Explicitly clear cutoff when unchecked
-            new_cutoff = None
+    #     lead_days, lead_cutoff = 0, None
+    #     index_val = int(raw_lead_days) if pd.notna(raw_lead_days) else 0
+    #     new_lead_days = st.selectbox("Lead Days (optional)", options=list(range(0, 15)), index=index_val)
+
+    #     use_cutoff = st.checkbox("Specify cutoff time?", value=pd.notna(raw_cutoff))
+    #     new_cutoff = st.time_input("Cutoff Time", value=datetime.strptime(raw_cutoff, "%H:%M %p").time()) if use_cutoff and pd.notna(raw_cutoff) else None
+
+
+
+    #     options = list(range(0, 15))
+    #     index_val = lead_days if lead_days in options else 0
+    #     # new_lead_days = st.selectbox("Lead Days (optional)", options=list(range(0, 15)), index=index_val)
+    #     # use_cutoff = st.checkbox("Specify cutoff time?", value=lead_cutoff is not None)
+    #     if use_cutoff:
+    # # If there was a saved cutoff, show it. Otherwise default to midnight.
+    #         new_cutoff = st.time_input("Cutoff Time", value=lead_cutoff or time(0,0))
+    #     else:
+    # # Explicitly clear cutoff when unchecked
+    #         new_cutoff = None
         
+        # --- Lead time with optional cutoff ---
+        raw_lead_days = st.session_state.bread_data.at[idx, "Lead Day"]
+        raw_cutoff = st.session_state.bread_data.at[idx, "Lead Time"]
+
+        index_val = int(raw_lead_days) if pd.notna(raw_lead_days) else 0
+        new_lead_days = st.selectbox("Lead Days (optional)", options=list(range(0, 15)), index=index_val)
+
+        use_cutoff = st.checkbox("Specify cutoff time?", value=pd.notna(raw_cutoff))
+        if use_cutoff:
+            cutoff_val = datetime.strptime(raw_cutoff, "%H:%M:%S").time() if pd.notna(raw_cutoff) else time(0,0)
+            new_cutoff = st.time_input("Cutoff Time", value=cutoff_val)
+        else:
+            new_cutoff = None
 
         # --- Remarks ---
         raw_remark = st.session_state.bread_data.at[idx, "Remark/Update (If Any)"]
@@ -386,16 +415,20 @@ if st.session_state.get("show_search_form", False):
                 st.session_state.bread_data.at[idx, "Name"] = new_name
                 st.session_state.bread_data.at[idx, "Supplier"] = pd.NA if not new_supplier.strip() else new_supplier
                 st.session_state.bread_data.at[idx, "Production Day"] = ",".join(new_days)
+                st.session_state.bread_data.at[idx, "Expiry Days"] = new_expiry_days
                 st.session_state.bread_data.at[idx, "Expiry"] = new_expiry
                 lead_time_text = f"{new_lead_days} days" + (
-    f", {new_cutoff.strftime('%I:%M %p')} cut-off" if new_cutoff else ""
+    f", {new_cutoff.strftime('%H:%M:%S')} cut-off" if new_cutoff else ""
 )
-                st.session_state.bread_data.at[idx, "Ordering Lead Time"] = lead_time_text
-                # Optional: track cutoff separately so you can distinguish "no cutoff" with NA
-                st.session_state.bread_data.at[idx, "Ordering Cutoff"] = (
-                new_cutoff.strftime("%H:%M:%S") if new_cutoff else pd.NA
-)
+                # st.session_state.bread_data.at[idx, "Ordering Lead Time"] = lead_time_text
+                # # Optional: track cutoff separately so you can distinguish "no cutoff" with NA
+                # st.session_state.bread_data.at[idx, "Ordering Cutoff"] = (
+                # new_cutoff.strftime("%H:%M:%S") if new_cutoff else pd.NA)
+                # st.session_state.bread_data.at[idx, "LeadTimeDays"] = new_lead_days
 
+                st.session_state.bread_data.at[idx, "Lead Day"] = new_lead_days
+                st.session_state.bread_data.at[idx, "Lead Time"] = new_cutoff.strftime("%H:%M:%S") if new_cutoff else pd.NA
+                st.session_state.bread_data.at[idx, "Ordering Lead Time"] = f"{new_lead_days} days" + (f", {new_cutoff.strftime('%H:%M:%S')} cut-off" if new_cutoff else "")
                 st.session_state.bread_data.at[idx, "Remark/Update (If Any)"] = pd.NA if not new_remark.strip() else new_remark
 
                 # Handle new image replacement here

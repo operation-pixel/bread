@@ -30,8 +30,7 @@ if "bread_data" in st.session_state:
 
     # --- Filtered DataFrame ---
     df = st.session_state.bread_data.copy()
-
-
+    
     # # --- Apply search filter ---
     # if search_term:
     #     df = df[df["Name"].str.contains(search_term, case=False, na=False)]

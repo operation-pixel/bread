@@ -14,6 +14,7 @@ st.write("Image directory:", image_dir)
 if os.path.exists(image_dir):
     files = os.listdir(image_dir)
     st.write("Files found in static/image:", files)
+    st.write("Please help")
 
 # Show the hotdog image
 hotdog_path = os.path.join(image_dir, "eggy_bread.jpeg")  # adjust extension if it's .png

@@ -15,14 +15,17 @@ if "is_admin" not in st.session_state:
 if not st.session_state.is_admin:
     st.title("Manage Bread")
     pwd = st.text_input("Enter admin password", type="password")
-    if st.button("Login"):
+    login_clicked = st.button("Login")
+    
+    if login_clicked:
         if pwd == SETTINGS_PASSWORD:
             st.session_state.is_admin = True
-            st.success("Login successful! You can now manage bread.")
+            st.rerun()
+            
         else:
             st.error("Incorrect password")
 else:
-
+    st.success("Login successful! You can now manage bread.")
     # --- ALL your existing bread management code goes here ---
     # (everything you pasted: add/update/delete/import/export forms)
 
